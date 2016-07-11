@@ -1,0 +1,8 @@
+use datasearch
+
+	insert into open_account_by_manager_per_month
+	select max(manager_code), max(archive_year), datepart(mm, dateadd(week, archive_week_of_year, dateadd(year,  archive_year - 1900, 0))), 
+	sum(open_account_count), 0
+	from open_account_by_manager_per_week oa
+	group by manager_code, archive_year,
+	datepart(mm, dateadd(week, archive_week_of_year, dateadd(year,  archive_year - 1900, 0)))
