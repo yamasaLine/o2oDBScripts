@@ -1,0 +1,37 @@
+
+DECLARE @manager_code NVARCHAR(20), @archive_year int,
+  @archive_day_of_year int, @open_account_count int
+DECLARE day_cursor CURSOR FOR
+SELECT manager_code, archive_year, archive_day_of_year, open_account_count from dbo.open_account_by_manager_per_day
+
+OPEN day_cursor
+FETCH NEXT FROM day_cursor INTO
+@manager_code, @archive_year, @archive_day_of_year, @open_account_count
+
+WHILE @@fetch_status = 0
+  BEGIN
+    INSERT INTO dbo.open_account_by_manager_per_day_with_chanel VALUES
+      (@manager_code, @archive_year, @archive_day_of_year, 1, 0, @open_account_count/5,0,0)
+    INSERT INTO dbo.open_account_by_manager_per_day_with_chanel VALUES
+      (@manager_code, @archive_year, @archive_day_of_year, 2, 0, @open_account_count/5,0,0)
+    INSERT INTO dbo.open_account_by_manager_per_day_with_chanel VALUES
+      (@manager_code, @archive_year, @archive_day_of_year, 3, 0, @open_account_count/5,0,0)
+    INSERT INTO dbo.open_account_by_manager_per_day_with_chanel VALUES
+      (@manager_code, @archive_year, @archive_day_of_year, 5, 1, @open_account_count/5,0,0)
+    INSERT INTO dbo.open_account_by_manager_per_day_with_chanel VALUES
+      (@manager_code, @archive_year, @archive_day_of_year, 5, 2, @open_account_count/5,0,0)
+
+    FETCH NEXT FROM day_cursor INTO
+    @manager_code, @archive_year, @archive_day_of_year, @open_account_count
+  END
+CLOSE day_cursor
+DEALLOCATE day_cursor
+
+;WITH cte as (
+SELECT oa.*,
+  rank() OVER(PARTITION BY ctu.branch_code, archive_year, archive_day_of_year, source_type, channel_type ORDER BY open_account_count DESC) as rrrank,
+  cast(open_account_count as FLOAT)/cast(sum(open_account_count) OVER(PARTITION BY ctu.branch_code, manager_code, archive_year, archive_day_of_year) as FLOAT)  as rrpercent
+from dbo.open_account_by_manager_per_day_with_chanel oa
+  inner join  kdcc30data..crm_tb_user ctu on ctu.user_code = oa.manager_code
+)
+update c set rank_in_department  = rrrank, percentage = rrpercent from cte c
